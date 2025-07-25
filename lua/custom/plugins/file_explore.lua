@@ -16,7 +16,10 @@ return {
       skip_confirm_for_simple_edits = true,
       cleanup_delay_ms = 2000,
       view_options = {
-        show_hidden = false,
+        show_hidden = true,
+        is_always_hidden = function(name, _)
+          return name == '.' or name == '..'
+        end,
         case_insensitive = true,
         sort = {
           { 'type', 'asc' },

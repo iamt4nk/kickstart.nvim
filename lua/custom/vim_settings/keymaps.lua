@@ -89,6 +89,9 @@ function vim_keymaps.set()
   vim.keymap.set('n', '<leader>lc', function()
     inspect_lsp_client()
   end, { desc = 'Shows the configuration for the provided LSP client' })
+
+  -- NOTE: This is unset so twe can use this as a tmux leader
+  vim.keymap.set({ 'i', 'n' }, '<C-Space>', '')
 end
 
 return vim_keymaps

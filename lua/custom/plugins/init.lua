@@ -82,6 +82,7 @@ return {
     dev = { true },
     dependencies = {
       'nvim-lua/plenary.nvim',
+      'nvim-neotest/nvim-nio',
     },
   },
 }
