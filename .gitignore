@@ -1,6 +1,12 @@
+tags
+test.sh
 .luarc.json
-lazy-lock.json
+nvim
 
-python/
 spell/
-dev/
+
+# nvim-pack-lock.json is deliberately NOT ignored here - see :help vim.pack-lockfile.
+# Upstream kickstart ignores it only to avoid merge conflicts in the public repo
+# and recommends personal forks track it.
+
+.DS_Store

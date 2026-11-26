@@ -1,234 +1,126 @@
-# kickstart.nvim
+# nvim
 
-## Introduction
+Personal Neovim configuration, forked from [kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim)
+at `8e35dbe` (2026-10-03).
 
-This is my Kickstart knock-off. Here are some of the main changes that I changed from the [original](https://github.com/nvim-lua/kickstart.nvim):  
-1. I now separate all plugins out based off of purpose: ``conform.nvim`` is now in ``autoformat.lua``, ``lsp-config`` and all Language Servers is now in ``lsp.lua``, etc.
-1. I added a keybind to a function that creates a window, showing all configurations for the specified LSP, as long as it is currently running. ![LSP Configuration](https://i.imgur.com/Cus4Mk2.png)
-1. All direct vim settings (i.e. relativenumber) can be called to be set directly from the vim-settings module. This makes it easy to parameterize whatever settings desired.
+`init.lua` is upstream kickstart with four edits — nerd font on, relative line
+numbers on, blink.cmp's config sourced from `lua/custom/completion.lua`, and
+`require 'custom'` at the bottom. Everything else personal lives in
+`lua/custom/`. Keeping it that way means `git diff upstream/master -- init.lua`
+stays readable and kickstart updates can be merged.
 
+## Layout
 
-## Installation
+| File | Responsibility |
+| --- | --- |
+| `lua/custom/init.lua` | Ordered module loader |
+| `lua/custom/options.lua` | WSL clipboard, relativenumber, listchars, scrolloff |
+| `lua/custom/keymaps.lua` | Splits, arrow-key nags, `<leader>lc` LSP inspector |
+| `lua/custom/ui.lua` | cyberdream, dashboard, oil, colour swatches |
+| `lua/custom/lsp.lua` | Language servers, Mason tool list |
+| `lua/custom/completion.lua` | blink.cmp (returns opts, see below) |
+| `lua/custom/format.lua` | conform.nvim |
+| `lua/custom/debug.lua` | nvim-dap, Python + Go |
+| `lua/custom/treesitter.lua` | Extra parsers |
+| `lua/custom/autocmds.lua` | Filetype indentation, user commands |
+| `lua/custom/plugins.lua` | markdown-preview, smm.nvim |
 
-### Install Neovim
+Load order matters in four places; see the comment at the top of
+`lua/custom/init.lua`.
 
-Kickstart.nvim targets *only* the latest
-['stable'](https://github.com/neovim/neovim/releases/tag/stable) and latest
-['nightly'](https://github.com/neovim/neovim/releases/tag/nightly) of Neovim.
-If you are experiencing issues, please make sure you have the latest versions.
+`lua/kickstart/plugins/` holds upstream's optional examples. They are kept on
+disk, unloaded, exactly as upstream ships them.
 
-I have created a recipe script to install all dependencies for neovim, so that there isn't a lot of setup required.
-Find that here: [Neovim Setup](https://github.com/kyallanum/Reused-Scripts/blob/main/NeoVim/neovim-setup.sh).
+## Gotchas worth knowing
 
-### Install External Dependencies
+These are vim.pack behaviours that lazy.nvim used to paper over. Each one cost
+real debugging time; they are documented inline where they bite.
 
-External Requirements:
-- Basic utils: `git`, `make`, `unzip`, C Compiler (`gcc`)
-- [ripgrep](https://github.com/BurntSushi/ripgrep#installation)
-- Clipboard tool (xclip/xsel/win32yank or other depending on platform)
-- A [Nerd Font](https://www.nerdfonts.com/): optional, provides various icons
-  - if you have it set `vim.g.have_nerd_font` in `init.lua` to true
-- Language Setup:
-  - If you want to write Typescript, you need `npm`
-  - If you want to write Golang, you will need `go`
-  - etc.
+- **blink.cmp guards its own setup** with `if has_setup then return end`, so
+  configuring it from `lua/custom/` is a silent no-op. `completion.lua` therefore
+  *returns* its opts table and `init.lua` SECTION 8 applies it.
+- **`plugin/` scripts run after `init.lua`.** smm.nvim's `plugin/smm.lua` calls
+  `setup()` with no arguments, which clobbered our config with defaults. We claim
+  `vim.g.loaded_smm` to make it return early.
+- **`PackChanged` fires during `vim.pack.add`**, so build hooks must be
+  registered *before* the add, not after.
+- **mason-nvim-dap registers its own python adapter** pointing at Mason's
+  interpreter. It must be set up *before* ours, so ours wins.
+- **nvim-treesitter `main` needs tree-sitter-cli >= 0.26.1.** Ubuntu's apt
+  `tree-sitter` is 0.20.8 and has no `build` subcommand, which fails every parser
+  build. Mason's copy is installed and shadows it for Neovim only.
 
-> **NOTE**
-> See [Install Recipes](#Install-Recipes) for additional Windows and Linux specific notes
-> and quick install snippets
+## Plugins
 
-### Install Kickstart
+Managed by `vim.pack`, built into Neovim 0.12 — there is no plugin manager
+dependency. `nvim-pack-lock.json` is tracked in git.
 
-> **NOTE**
-> [Backup](#FAQ) your previous configuration (if any exists)
+- Inspect: `:lua vim.pack.update(nil, { offline = true })`
+- Update: `:lua vim.pack.update()`
 
-Neovim's configurations are located under the following paths, depending on your OS:
-
-| OS | PATH |
-| :- | :--- |
-| Linux, MacOS, WSL | `$XDG_CONFIG_HOME/nvim`, `~/.config/nvim` |
-| Windows (cmd)| `%localappdata%\nvim\` |
-| Windows (powershell)| `$env:LOCALAPPDATA\nvim\` |
-
-#### Recommended Step
-
-[Fork](https://docs.github.com/en/get-started/quickstart/fork-a-repo) this repo
-so that you have your own copy that you can modify, then install by cloning the
-fork to your machine using one of the commands below, depending on your OS.
-
-> **NOTE**
-> Your fork's url will be something like this:
-> `https://github.com/<your_github_username>/kickstart.nvim.git`
-
-You likely want to remove the `lazy-lock.json` from your fork as that is what I am currently using.
-Then when you run ``nvim`` for the first time you will get your own ``lazy-lock.json``. It is
-[recommmended to track it in version control](https://lazy.folke.io/usage/lockfile) after all.
-
-#### Clone kickstart.nvim
-> **NOTE**
-> If following the recommended step above (i.e., forking the repo), replace
-> `kyallanum` with `<your_github_username>` in the commands below
-
-<details><summary> Linux and Mac </summary>
+## Tests
 
 ```sh
-git clone https://github.com/kyallanum/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+./tests/run.sh           # against the real data dir
+CLEAN=1 ./tests/run.sh   # bootstrap from an empty data dir
 ```
 
-</details>
+Every module has a `tests/test_*.lua`. Tests assert real outcomes — that `ols`
+attaches to an `.odin` buffer, that `conform` actually changes a misformatted
+file — not just that config tables have the right shape.
 
-<details><summary> Windows </summary>
+`CLEAN=1` proves the config bootstraps from nothing. In that mode the Mason
+tools are absent, so the formatter and `ruff` assertions fail by design; what
+matters is that no Lua errors occur.
 
-If you're using `cmd.exe`:
+Fixtures are written to `~/.cache/nvim/nvim-config-tests/`, deliberately outside
+this repo: several are intentionally misformatted, and anything under the repo
+gets picked up by `stylua` — including conform's stylua formatter, which honours
+`.styluaignore` and would then refuse to format the fixture the test depends on.
 
-```
-git clone https://github.com/kyallanum/kickstart.nvim.git "%localappdata%\nvim"
-```
+## Languages
 
-If you're using `powershell.exe`
+Go (gopls, gofumpt, goimports, delve), Python (pyright + ruff, debugpy),
+Odin (ols, odinfmt), Lua (lua_ls, stylua), templ/HTML/Tailwind/htmx, JSON
+(schemastore).
 
-```
-git clone https://github.com/kyallanum/kickstart.nvim.git "${env:LOCALAPPDATA}\nvim"
-```
+Formatting is opt-out: everything formats on save except `c` and `cpp`. HTML
+prefers the language server; everything else prefers the external formatter and
+falls back to the LSP.
 
-</details>
+## Dependencies
 
-### Post Installation
+External: `git`, `make`, `gcc`, `ripgrep`, `fzf`, `unzip`, `node`, `go`, `odin`,
+`templ`, `jq`. Under WSL, `win32yank.exe` for clipboard.
 
-Start Neovim
+Everything else is installed by Mason on first launch.
+
+> On Debian/Ubuntu, `fd-find` installs as `fdfind`. Telescope handles this, but
+> plugins that hardcode `fd` will not. `ln -s /usr/bin/fdfind ~/.local/bin/fd` if
+> that ever bites.
+
+## Keymaps worth knowing
+
+LSP uses Neovim 0.11+ defaults: `grn` rename, `gra` code action, `grr`
+references, `gri` implementation, `grd` definition, `grt` type definition, `gO`
+document symbols, `gW` workspace symbols.
+
+`<C-Space>` is deliberately unmapped — it is the tmux prefix. blink.cmp's
+documentation popup lives on `<C-d>` instead.
+
+Debugging: `<F5>` continue, `<F6>` step over, `<F7>` step into, `<F8>` step out,
+`<F9>` toggle UI, `<leader>b` breakpoint, `<leader>B` conditional breakpoint,
+`<leader>gb` run to cursor.
+
+## Rollback
+
+`~/.config/nvim-bak` is the previous lazy.nvim config, untouched.
 
 ```sh
-nvim
+mv ~/.config/nvim ~/.config/nvim-new
+cp -r ~/.config/nvim-bak ~/.config/nvim
+rm -rf ~/.local/share/nvim
 ```
 
-That's it! Lazy will install all the plugins you have. Use `:Lazy` to view
-current plugin status. Hit `q` to close the window.
-
-Read through the `init.lua` file in your configuration folder for more
-information about extending and exploring Neovim. That also includes
-examples of adding popularly requested plugins.
-
-
-### Getting Started
-
-[The Only Video You Need to Get Started with Neovim](https://youtu.be/m8C0Cq9Uv9o)
-
-### FAQ
-
-* What should I do if I already have a pre-existing neovim configuration?
-  * You should back it up and then delete all associated files.
-  * This includes your existing init.lua and the neovim files in `~/.local`
-    which can be deleted with `rm -rf ~/.local/share/nvim/`
-* Can I keep my existing configuration in parallel to kickstart?
-  * Yes! You can use [NVIM_APPNAME](https://neovim.io/doc/user/starting.html#%24NVIM_APPNAME)`=nvim-NAME`
-    to maintain multiple configurations. For example, you can install the kickstart
-    configuration in `~/.config/nvim-kickstart` and create an alias:
-    ```
-    alias nvim-kickstart='NVIM_APPNAME="nvim-kickstart" nvim'
-    ```
-    When you run Neovim using `nvim-kickstart` alias it will use the alternative
-    config directory and the matching local directory
-    `~/.local/share/nvim-kickstart`. You can apply this approach to any Neovim
-    distribution that you would like to try out.
-* What if I want to "uninstall" this configuration:
-  * See [lazy.nvim uninstall](https://lazy.folke.io/usage#-uninstalling) information
-* Why is the kickstart `init.lua` a single file? Wouldn't it make sense to split it into multiple files?
-  * The main purpose of kickstart is to serve as a teaching tool and a reference
-    configuration that someone can easily use to `git clone` as a basis for their own.
-    As you progress in learning Neovim and Lua, you might consider splitting `init.lua`
-    into smaller parts. A fork of kickstart that does this while maintaining the 
-    same functionality is available here:
-    * [kickstart-modular.nvim](https://github.com/dam9000/kickstart-modular.nvim)
-  * Discussions on this topic can be found here:
-    * [Restructure the configuration](https://github.com/nvim-lua/kickstart.nvim/issues/218)
-    * [Reorganize init.lua into a multi-file setup](https://github.com/nvim-lua/kickstart.nvim/pull/473)
-
-### Install Recipes
-
-Below you can find OS specific install instructions for Neovim and dependencies.
-
-After installing all the dependencies continue with the [Install Kickstart](#Install-Kickstart) step.
-
-#### Windows Installation
-
-<details><summary>Windows with Microsoft C++ Build Tools and CMake</summary>
-Installation may require installing build tools and updating the run command for `telescope-fzf-native`
-
-See `telescope-fzf-native` documentation for [more details](https://github.com/nvim-telescope/telescope-fzf-native.nvim#installation)
-
-This requires:
-
-- Install CMake and the Microsoft C++ Build Tools on Windows
-
-```lua
-{'nvim-telescope/telescope-fzf-native.nvim', build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build' }
-```
-</details>
-<details><summary>Windows with gcc/make using chocolatey</summary>
-Alternatively, one can install gcc and make which don't require changing the config,
-the easiest way is to use choco:
-
-1. install [chocolatey](https://chocolatey.org/install)
-either follow the instructions on the page or use winget,
-run in cmd as **admin**:
-```
-winget install --accept-source-agreements chocolatey.chocolatey
-```
-
-2. install all requirements using choco, exit previous cmd and
-open a new one so that choco path is set, and run in cmd as **admin**:
-```
-choco install -y neovim git ripgrep wget fd unzip gzip mingw make
-```
-</details>
-<details><summary>WSL (Windows Subsystem for Linux)</summary>
-
-```
-wsl --install
-wsl
-sudo add-apt-repository ppa:neovim-ppa/unstable -y
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip neovim
-```
-</details>
-
-#### Linux Install
-<details><summary>Ubuntu Install Steps</summary>
-
-```
-sudo add-apt-repository ppa:neovim-ppa/unstable -y
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip neovim
-```
-</details>
-<details><summary>Debian Install Steps</summary>
-
-```
-sudo apt update
-sudo apt install make gcc ripgrep unzip git xclip curl
-
-# Now we install nvim
-curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
-sudo rm -rf /opt/nvim-linux64
-sudo mkdir -p /opt/nvim-linux64
-sudo chmod a+rX /opt/nvim-linux64
-sudo tar -C /opt -xzf nvim-linux64.tar.gz
-
-# make it available in /usr/local/bin, distro installs to /usr/bin
-sudo ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/
-```
-</details>
-<details><summary>Fedora Install Steps</summary>
-
-```
-sudo dnf install -y gcc make git ripgrep fd-find unzip neovim
-```
-</details>
-
-<details><summary>Arch Install Steps</summary>
-
-```
-sudo pacman -S --noconfirm --needed gcc make git ripgrep fd unzip neovim
-```
-</details>
-
+`~/.config/nvim_dev` is a separate sandbox for developing smm.nvim, run with
+`NVIM_APPNAME=nvim_dev nvim`.
