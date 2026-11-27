@@ -16,7 +16,6 @@ require('nvim-treesitter').install {
   'gowork',
   'gosum',
   -- Web
-  'templ',
   'css',
   'javascript',
   -- Python

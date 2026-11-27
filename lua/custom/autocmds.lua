@@ -12,7 +12,6 @@ local indent_by_ft = {
   html = 2,
   json = 2,
   jsonc = 2,
-  templ = 2,
   yaml = 2,
 }
 
@@ -43,29 +42,6 @@ vim.api.nvim_create_autocmd('BufWinLeave', {
   pattern = '*.json',
   callback = function() vim.cmd 'silent! mkview' end,
 })
-
--- templ has its own formatter binary that conform drives, but `templ fmt` must
--- run against the file on disk, so it happens after write rather than before.
---
--- vim.system + checktime, NOT the old config's jobstart + `e!`: `e!` discards
--- unsaved changes in whatever buffer happens to be current when the job
--- returns, and the old guard (`vim.api.nvim_get_current_buf == bufnr`, comparing
--- a function to a number) was always false so it never fired anyway.
-vim.api.nvim_create_autocmd('BufWritePost', {
-  group = group,
-  pattern = '*.templ',
-  callback = function(ev)
-    local filename = vim.api.nvim_buf_get_name(ev.buf)
-    vim.system({ 'templ', 'fmt', filename }, {}, function()
-      vim.schedule(function()
-        if vim.api.nvim_buf_is_valid(ev.buf) then vim.cmd.checktime() end
-      end)
-    end)
-  end,
-})
-
--- HTML is formatted by html-lsp on save; see the prefer_lsp branch in
--- lua/custom/format.lua. No separate autocmd needed.
 
 -- Autosave odin buffers so diagnostics stop going stale.
 --

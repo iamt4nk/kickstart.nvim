@@ -1,30 +1,39 @@
 -- Theme, dashboard and file explorer. See lua/custom/init.lua for load-order notes.
 -- The colorscheme is applied before dashboard is configured, because the
--- dashboard header override references cyberdream's palette.
+-- dashboard header override references the tokyonight palette.
 
 local function gh(repo) return 'https://github.com/' .. repo end
 
 vim.pack.add {
-  gh 'scottmckendry/cyberdream.nvim',
+  gh 'folke/tokyonight.nvim', -- already added by init.lua; listed so this file stands alone
   gh 'nvimdev/dashboard-nvim',
   gh 'stevearc/oil.nvim',
   gh 'brenoprata10/nvim-highlight-colors',
 }
 
 -- [[ Colorscheme ]]
-require('cyberdream').setup {
+-- Tokyo Night (night) to match the desktop rice / kitty theme.conf. This
+-- re-runs tokyonight's setup (it is idempotent) with the full desired config,
+-- overriding upstream init.lua's.
+require('tokyonight').setup {
+  style = 'night',
+  -- Let kitty's translucency + picom blur show through
   transparent = true,
-  saturation = 0.5,
   terminal_colors = true,
-  italic_comments = true,
-  borderless_pickers = true,
-  overrides = function(colors)
-    return {
-      DashboardHeader = { fg = colors.green, bg = 'NONE' },
-    }
+  styles = {
+    comments = { italic = true },
+    keywords = { italic = true },
+    sidebars = 'transparent', -- help, qf, etc.
+    floats = 'dark', -- #16161e popups, same as the rofi menus
+  },
+  on_highlights = function(hl, c)
+    hl.DashboardHeader = { fg = c.blue, bg = 'NONE' }
+    -- Keep line numbers readable on a see-through background
+    hl.CursorLineNr = { fg = c.orange, bold = true }
+    hl.LineNr = { fg = c.comment }
   end,
 }
-vim.cmd.colorscheme 'cyberdream'
+vim.cmd.colorscheme 'tokyonight-night'
 
 -- [[ Inline colour swatches ]]
 require('nvim-highlight-colors').setup {

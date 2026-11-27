@@ -1,9 +1,8 @@
 -- Personal configuration, loaded from the bottom of init.lua.
 --
--- The order below is load-bearing in four places:
+-- The order below is load-bearing in three places:
 --   * `ui` installs nvim-highlight-colors, which `completion` draws with
---   * `lsp` installs schemastore, which its own jsonls config consumes
---   * `format` installs conform, which `autocmds` calls on HTML write
+--   * `format` installs conform, whose format-on-save the odin autosave in `autocmds` triggers
 --   * `options` runs first so nothing races the editor-level settings
 --
 -- Several of these modules call `setup()` on a plugin that upstream's init.lua

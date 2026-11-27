@@ -14,19 +14,13 @@ require('conform').setup {
     local disabled = { c = true, cpp = true }
     if disabled[filetype] then return { timeout_ms = 500, lsp_format = 'never' } end
 
-    -- html-lsp's formatter honours the indentation settings in lua/custom/lsp.lua,
-    -- so prefer it over any external tool.
-    local prefer_lsp = { html = true }
-    if prefer_lsp[filetype] then return { timeout_ms = 500, lsp_format = 'prefer' } end
-
     return { timeout_ms = 500, lsp_format = 'fallback' }
   end,
   formatters_by_ft = {
     go = { 'goimports', 'gofumpt' },
     lua = { 'stylua' },
     python = { 'ruff_format' },
-    templ = { 'templ' },
-    -- odinfmt ships inside the Mason `ols` package. It reads directives from the
+    -- odinfmt is built alongside ols (~/repos/ols). It reads directives from the
     -- nearest odinfmt.json, searching upward from the file.
     odin = { 'odinfmt' },
   },

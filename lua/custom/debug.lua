@@ -25,35 +25,26 @@ local function find_project_root()
   end
 end
 
----Resolve the Python interpreter to debug with, preferring a real project venv
----over a pyenv shim over the system interpreter.
+---Resolve the Python interpreter to debug with: the project venv (uv's `.venv`,
+---or a plain `venv`), then whatever uv resolves for the project, then system python.
 ---@return string
 local function get_python_path()
   local project_root = find_project_root()
 
   if project_root then
-    local venv = project_root .. '/venv/bin/python'
-    if vim.fn.executable(venv) == 1 then
-      local real_path = vim.fn.resolve(venv)
-      -- A shim is not a real interpreter; debugpy needs the actual binary.
-      if not real_path:match 'pyenv/shims' then return real_path end
-    end
-
-    local handle = io.popen('cd ' .. vim.fn.shellescape(project_root) .. ' && pyenv which python 2>/dev/null')
-    if handle then
-      local pyenv_path = handle:read '*a'
-      handle:close()
-      pyenv_path = (pyenv_path or ''):gsub('[\n\r]', '')
-      if pyenv_path ~= '' then return pyenv_path end
+    for _, dir in ipairs { '.venv', 'venv' } do
+      -- Not resolved: following the venv's python symlink would escape the venv.
+      local venv_python = project_root .. '/' .. dir .. '/bin/python'
+      if vim.fn.executable(venv_python) == 1 then return venv_python end
     end
   end
 
-  local handle = io.popen 'pyenv which python 2>/dev/null'
-  if handle then
-    local system_python = handle:read '*a'
-    handle:close()
-    system_python = (system_python or ''):gsub('[\n\r]', '')
-    if system_python ~= '' then return system_python end
+  -- No venv: uv honours .python-version / requires-python and finds
+  -- uv-managed interpreters (`uv python install ...`).
+  if vim.fn.executable 'uv' == 1 then
+    local result = vim.system({ 'uv', 'python', 'find' }, { cwd = project_root, text = true }):wait()
+    local uv_python = (result.stdout or ''):gsub('[\n\r]', '')
+    if result.code == 0 and uv_python ~= '' then return uv_python end
   end
 
   local fallback = vim.fn.exepath 'python3'
@@ -84,10 +75,15 @@ local default_python_config = {
   justMyCode = false,
   env = {
     PYTHONPATH = vim.fn.getcwd(),
-    VIRTUAL_ENV = vim.fn.getcwd() .. '/venv',
-    PATH = vim.fn.getcwd() .. '/venv/bin:' .. vim.env.PATH,
   },
 }
+
+-- If the interpreter lives in a venv (<venv>/bin/python), activate that venv.
+local venv_dir = vim.fn.fnamemodify(python_path, ':h:h')
+if vim.fn.filereadable(venv_dir .. '/pyvenv.cfg') == 1 then
+  default_python_config.env.VIRTUAL_ENV = venv_dir
+  default_python_config.env.PATH = venv_dir .. '/bin:' .. vim.env.PATH
+end
 
 ---Overlay a user configuration on the defaults, without letting it clobber the
 ---interpreter or the three environment variables we control.
